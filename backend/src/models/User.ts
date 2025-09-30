@@ -39,10 +39,6 @@ const UserSchema: Schema = new Schema(
         'Please enter a valid email',
       ],
     },
-    phone: {
-      type: String,
-      match: [/^\+?[\d\s\-\(\)]+$/, 'Please enter a valid phone number'],
-    },
     metadata: {
       type: Schema.Types.Mixed,
       default: {},

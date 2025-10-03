@@ -8,6 +8,9 @@ export interface ICompany extends Document {
   contactPerson: string;
   phone?: string;
   isActive: boolean;
+  otpCode?: string;
+  otpExpiry?: Date;
+  lastLogin?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -54,6 +57,17 @@ const CompanySchema: Schema = new Schema(
     isActive: {
       type: Boolean,
       default: true,
+    },
+    otpCode: {
+      type: String,
+      select: false, // Don't include in normal queries for security
+    },
+    otpExpiry: {
+      type: Date,
+      select: false, // Don't include in normal queries for security
+    },
+    lastLogin: {
+      type: Date,
     },
   },
   {

@@ -4,15 +4,22 @@ import helmet from 'helmet';
 import compression from 'compression';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
+import { createServer } from 'http';
 import { config } from './config/config';
 import { connectDB } from './config/database';
 import { errorHandler } from './middleware/errorHandler';
 import { notFound } from './middleware/notFound';
+import WebSocketService from './services/WebSocketService';
 
 // Import routes
 import apiKeyRoutes from './routes/apiKeys';
 import dataIngestionRoutes from './routes/dataIngestion';
 import companyRoutes from './routes/companies';
+import analyticsRoutes from './routes/analytics';
+import securityRoutes from './routes/security';
+import dashboardRoutes from './routes/dashboard';
+import realtimeRoutes from './routes/realtime';
+import sdkRoutes from './routes/sdk';
 
 const app = express();
 
@@ -24,7 +31,7 @@ app.use(helmet());
 
 // CORS configuration
 app.use(cors({
-  origin: config.corsOrigin,
+  origin: ['http://localhost:3000', 'http://localhost:3001'],
   credentials: true,
 }));
 
@@ -53,10 +60,25 @@ app.get('/health', (req, res) => {
   });
 });
 
+// CORS debug endpoint
+app.get('/cors-debug', (req, res) => {
+  res.status(200).json({
+    origin: req.headers.origin,
+    allowedOrigins: config.corsOrigin,
+    userAgent: req.headers['user-agent'],
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // API routes
 app.use('/api/companies', companyRoutes);
 app.use('/api/api-keys', apiKeyRoutes);
 app.use('/api/data', dataIngestionRoutes);
+app.use('/api/analytics', analyticsRoutes);
+app.use('/api/security/alerts', securityRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/realtime', realtimeRoutes);
+app.use('/api/sdk', sdkRoutes);
 
 // Error handling middleware
 app.use(notFound);
@@ -64,7 +86,13 @@ app.use(errorHandler);
 
 const PORT = config.port || 5000;
 
-app.listen(PORT, () => {
+// Create HTTP server
+const server = createServer(app);
+
+// Initialize WebSocket service
+new WebSocketService(server);
+
+server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT} in ${config.nodeEnv} mode`);
 });
 

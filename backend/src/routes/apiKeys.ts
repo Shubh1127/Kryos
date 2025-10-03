@@ -20,12 +20,13 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
       throw new CustomError('Company not found', 404);
     }
 
-    // Generate API key
-    const { keyId, keySecret, keyHash } = (ApiKey as any).generateApiKey();
+    // Generate API key (includes encrypted copy of secret for future optional retrieval)
+    const { keyId, keySecret, keyHash, keySecretEncrypted } = (ApiKey as any).generateApiKey();
 
     const apiKey = new ApiKey({
       keyId,
       keyHash,
+      keySecretEncrypted, // persist encrypted secret
       company: companyId,
       name,
       description,
@@ -41,7 +42,8 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
       data: {
         id: apiKey._id,
         keyId: apiKey.keyId,
-        apiKey: `${keyId}.${keySecret}`, // Full API key for client
+        fullApiKey: `${keyId}.${keySecret}`, // Full API key for client (preferred key)
+        apiKey: `${keyId}.${keySecret}`, // Backwards compatibility
         name: apiKey.name,
         description: apiKey.description,
         permissions: apiKey.permissions,
@@ -63,19 +65,35 @@ router.get('/company/:companyId', async (req: Request, res: Response, next: Next
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
     const skip = (page - 1) * limit;
+    const includeSecret = (req.query.includeSecret as string) === 'true';
 
-    const apiKeys = await ApiKey.find({ company: companyId })
-      .select('-keyHash') // Don't expose the hash
+    // SECURITY NOTE: Returning the decrypted secret repeatedly increases risk.
+    // Only enable includeSecret=true for privileged internal dashboards; never expose publicly.
+    let query = ApiKey.find({ company: companyId })
+      .select(includeSecret ? '+keySecretEncrypted -keyHash' : '-keyHash')
       .populate('company', 'name email')
       .skip(skip)
       .limit(limit)
       .sort({ createdAt: -1 });
 
+    const apiKeys = await query;
+
+    const transformed = apiKeys.map(k => {
+      const obj: any = k.toObject();
+      if (includeSecret) {
+        const secret = (k as any).getDecryptedSecret?.();
+        if (secret) {
+          obj.fullApiKey = `${k.keyId}.${secret}`;
+        }
+      }
+      return obj;
+    });
+
     const total = await ApiKey.countDocuments({ company: companyId });
 
     res.json({
       success: true,
-      data: apiKeys,
+      data: transformed,
       pagination: {
         page,
         limit,
@@ -91,17 +109,26 @@ router.get('/company/:companyId', async (req: Request, res: Response, next: Next
 // Get API key details
 router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const includeSecret = (req.query.includeSecret as string) === 'true';
     const apiKey = await ApiKey.findById(req.params.id)
-      .select('-keyHash')
+      .select(includeSecret ? '+keySecretEncrypted -keyHash' : '-keyHash')
       .populate('company', 'name email');
 
     if (!apiKey) {
       throw new CustomError('API key not found', 404);
     }
 
+    const obj: any = apiKey.toObject();
+    if (includeSecret) {
+      const secret = (apiKey as any).getDecryptedSecret?.();
+      if (secret) {
+        obj.fullApiKey = `${apiKey.keyId}.${secret}`;
+      }
+    }
+
     res.json({
       success: true,
-      data: apiKey,
+      data: obj,
     });
   } catch (error) {
     next(error);

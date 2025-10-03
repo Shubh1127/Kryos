@@ -58,6 +58,12 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   }
 });
 
+// Logout (stateless placeholder – clears client-side only)
+router.post('/logout', async (req: Request, res: Response) => {
+  // If you later add server-issued sessions or refresh tokens, revoke them here.
+  return res.json({ success: true, message: 'Logged out successfully' });
+});
+
 // Get company by ID
 router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -120,4 +126,109 @@ router.delete('/:id', async (req: Request, res: Response, next: NextFunction) =>
   }
 });
 
+
+
+// Send OTP for login
+router.post('/send-otp', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { email } = req.body;
+    
+    if (!email) {
+      throw new CustomError("Email is required", 400);
+    }
+
+    // Find company by email
+    const company = await Company.findOne({ email, isActive: true });
+    if (!company) {
+      throw new CustomError("Company not found", 404);
+    }
+
+    // Generate 6-digit OTP
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    // Update company with OTP
+    await Company.findByIdAndUpdate(company._id, {
+      otpCode,
+      otpExpiry
+    });
+
+    // Import email service (CommonJS require)
+    const { sendOtpLoginEmail } = require('../mailTrap/Email.js');
+    
+    // Send OTP email
+    await sendOtpLoginEmail(email, company.name, otpCode);
+
+    res.json({
+      success: true,
+      message: 'OTP sent to your email successfully',
+      data: {
+        email,
+        expiresIn: '10 minutes'
+      }
+    });
+
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Verify OTP and login
+router.post('/verify-otp', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { email, otpCode } = req.body;
+    
+    if (!email || !otpCode) {
+      throw new CustomError("Email and OTP code are required", 400);
+    }
+
+    // Find company with OTP fields
+    const company = await Company.findOne({ 
+      email, 
+      isActive: true 
+    }).select('+otpCode +otpExpiry');
+
+    if (!company) {
+      throw new CustomError("Company not found", 404);
+    }
+
+    // Check if OTP exists and is not expired
+    if (!company.otpCode || !company.otpExpiry) {
+      throw new CustomError("No OTP found. Please request a new OTP", 400);
+    }
+
+    if (company.otpExpiry < new Date()) {
+      throw new CustomError("OTP has expired. Please request a new OTP", 400);
+    }
+
+    if (company.otpCode !== otpCode) {
+      throw new CustomError("Invalid OTP code", 400);
+    }
+
+    // Clear OTP and update last login
+    await Company.findByIdAndUpdate(company._id, {
+      $unset: { otpCode: 1, otpExpiry: 1 },
+      lastLogin: new Date()
+    });
+
+    // Import email service and send success notification
+    const { sendLoginSuccessEmail } = require('../mailTrap/Email.js');
+    await sendLoginSuccessEmail(email, company.name);
+
+    // Return company data (without sensitive fields)
+    const companyData = await Company.findById(company._id);
+
+    res.json({
+      success: true,
+      message: 'Login successful',
+      data: {
+        company: companyData,
+        token: `company_${company._id}` // Simple token for now
+      }
+    });
+
+  } catch (error) {
+    next(error);
+  }
+});
 export default router;

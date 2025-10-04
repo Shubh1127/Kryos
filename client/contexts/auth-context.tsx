@@ -1,113 +1,113 @@
-"use client"
+'use client';
 
-import type React from "react"
-import { createContext, useContext, useState, useEffect } from "react"
-
-interface User {
-  id: string
-  email: string
-  name: string
-  role: string
-  lastProfileUpdate?: string
-}
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { apiService, Company } from '@/lib/api';
 
 interface AuthContextType {
-  user: User | null
-  apiKey: string | null
-  login: (email: string, password: string) => Promise<boolean>
-  register: (email: string, password: string, name: string) => Promise<boolean>
-  logout: () => void
-  setApiKey: (key: string) => void
-  isAuthenticated: boolean
-  hasApiKey: boolean
+  company: Company | null;
+  isLoading: boolean;
+  isAuthenticated: boolean;
+  login: (email: string) => Promise<void>;
+  register: (companyData: {
+    name: string;
+    email: string;
+    contactPerson: string;
+    description?: string;
+    website?: string;
+    phone?: string;
+  }) => Promise<void>;
+  logout: () => void;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined)
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [apiKey, setApiKeyState] = useState<string | null>(null)
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
+
+interface AuthProviderProps {
+  children: ReactNode;
+}
+
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+  const [company, setCompany] = useState<Company | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Load from localStorage on mount
-    const savedUser = localStorage.getItem("kryos_user")
-    const savedApiKey = localStorage.getItem("kryos_api_key")
-
-    if (savedUser) {
-      setUser(JSON.parse(savedUser))
-    }
-    if (savedApiKey) {
-      setApiKeyState(savedApiKey)
-    }
-  }, [])
-
-  const login = async (email: string, password: string): Promise<boolean> => {
-    try {
-      // Mock authentication - in real app, this would call your backend
-      const mockUser: User = {
-        id: "1",
-        email,
-        name: email.split("@")[0],
-        role: "user",
+    // Check if user is already authenticated
+    const checkAuthStatus = async () => {
+      try {
+        const savedCompany = await apiService.getCurrentCompany();
+        if (savedCompany) {
+          setCompany(savedCompany);
+        }
+      } catch (error) {
+        console.error('Auth check failed:', error);
+      } finally {
+        setIsLoading(false);
       }
+    };
 
-      setUser(mockUser)
-      localStorage.setItem("kryos_user", JSON.stringify(mockUser))
-      return true
-    } catch (error) {
-      console.error("Login failed:", error)
-      return false
-    }
-  }
+    checkAuthStatus();
+  }, []);
 
-  const register = async (email: string, password: string, name: string): Promise<boolean> => {
+  const login = async (email: string) => {
+    setIsLoading(true);
     try {
-      // Mock registration - in real app, this would call your backend
-      const mockUser: User = {
-        id: Date.now().toString(),
-        email,
-        name,
-        role: "user",
-      }
-
-      setUser(mockUser)
-      localStorage.setItem("kryos_user", JSON.stringify(mockUser))
-      return true
+      const result = await apiService.loginCompany(email);
+      setCompany(result.data);
     } catch (error) {
-      console.error("Registration failed:", error)
-      return false
+      console.error('Login failed:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
     }
-  }
+  };
+
+  const register = async (companyData: {
+    name: string;
+    email: string;
+    contactPerson: string;
+    description?: string;
+    website?: string;
+    phone?: string;
+  }) => {
+    setIsLoading(true);
+    try {
+      const result = await apiService.registerCompany(companyData);
+      // Auto-login after successful registration
+      await login(companyData.email);
+    } catch (error) {
+      console.error('Registration failed:', error);
+      setIsLoading(false);
+      throw error;
+    }
+  };
 
   const logout = () => {
-    setUser(null)
-    setApiKeyState(null)
-    localStorage.removeItem("kryos_user")
-    localStorage.removeItem("kryos_api_key")
-  }
+    apiService.logout();
+    setCompany(null);
+  };
 
-  const setApiKey = (key: string) => {
-    setApiKeyState(key)
-    localStorage.setItem("kryos_api_key", key)
-  }
+  const value: AuthContextType = {
+    company,
+    isLoading,
+    isAuthenticated: !!company,
+    login,
+    register,
+    logout,
+  };
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        apiKey,
-        login,
-        register,
-        logout,
-        setApiKey,
-        isAuthenticated: !!user,
-        hasApiKey: !!apiKey,
-      }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
-  )
-}
+  );
+};
 
 export function useAuth() {
   const context = useContext(AuthContext)

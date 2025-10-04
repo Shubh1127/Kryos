@@ -4,11 +4,14 @@ import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/contexts/auth-context"
-import { Upload, CreditCard, FileText, User, Key, TrendingUp, Shield } from "lucide-react"
+import { useDashboardData } from "@/hooks/use-dashboard-data"
+import { Upload, CreditCard, FileText, User, Key, TrendingUp, Shield, Users, Database } from "lucide-react"
 import Link from "next/link"
+import { Skeleton } from "@/components/ui/skeleton"
 
 export default function DashboardPage() {
   const { user } = useAuth()
+  const { stats, loading, error } = useDashboardData()
   const isAdmin = user?.role === "admin"
 
   const quickActions = [
@@ -54,28 +57,32 @@ export default function DashboardPage() {
 
   const stats = [
     {
+      title: "Total Users",
+      value: loading ? "..." : stats.totalUsers.toString(),
+      icon: Users,
+      change: "+12%",
+      loading,
+    },
+    {
+      title: "API Keys",
+      value: loading ? "..." : stats.totalApiKeys.toString(),
+      icon: Key,
+      change: "+3%",
+      loading,
+    },
+    {
+      title: "Data Entries",
+      value: loading ? "..." : stats.totalEntries.toString(),
+      icon: Database,
+      change: "+18%",
+      loading,
+    },
+    {
       title: "Files Uploaded",
-      value: "24",
+      value: loading ? "..." : stats.totalFiles.toString(),
       icon: Upload,
       change: "+12%",
-    },
-    {
-      title: "Transactions",
-      value: "8",
-      icon: CreditCard,
-      change: "+3%",
-    },
-    {
-      title: "API Calls",
-      value: "156",
-      icon: Key,
-      change: "+18%",
-    },
-    {
-      title: "Success Rate",
-      value: "98.5%",
-      icon: TrendingUp,
-      change: "+2.1%",
+      loading,
     },
   ]
 
@@ -99,7 +106,11 @@ export default function DashboardPage() {
                 <stat.icon className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stat.value}</div>
+                {stat.loading ? (
+                  <Skeleton className="h-8 w-16 mb-2" />
+                ) : (
+                  <div className="text-2xl font-bold">{stat.value}</div>
+                )}
                 <p className="text-xs text-muted-foreground">
                   <span className="text-green-500">{stat.change}</span> from last month
                 </p>
@@ -107,6 +118,21 @@ export default function DashboardPage() {
             </Card>
           ))}
         </div>
+
+        {/* Error State */}
+        {error && (
+          <Card className="border-red-200 bg-red-50">
+            <CardContent className="pt-6">
+              <div className="flex items-center space-x-2">
+                <div className="text-red-600">⚠️</div>
+                <div>
+                  <p className="text-sm text-red-800 font-medium">Failed to load dashboard data</p>
+                  <p className="text-xs text-red-600">{error}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Quick Actions */}
         <div>

@@ -1,5 +1,6 @@
 import express, { Response, NextFunction } from 'express';
-import { authenticateApiKey, checkPermission, AuthenticatedRequest } from '../middleware/auth';
+import { authenticateApiKey, checkPermission } from '../middleware/auth';
+import { AuthenticatedRequest } from '../types';
 import { upload, validateFiles, getFileInfo } from '../utils/fileUpload';
 import { dataEntrySchema, userDataSchema } from '../utils/validation';
 import { CustomError } from '../middleware/errorHandler';

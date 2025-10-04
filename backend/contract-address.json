@@ -1,0 +1,13 @@
+{
+  "address": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+  "network": "localhost",
+  "deployedAt": "2025-10-04T06:10:00.000Z",
+  "abi": [
+    "constructor()",
+    "function storeDataHash(string memory _externalId, string memory _dataType, string memory _dataHash, string memory _companyId) public",
+    "function getDataHash(string memory _externalId) public view returns (string memory externalId, string memory dataType, string memory dataHash, string memory companyId, uint256 timestamp, address storedBy)",
+    "function dataHashExists(string memory _externalId) public view returns (bool)",
+    "function getTotalHashes() public view returns (uint256)",
+    "function getDataHashesByCompany(string memory _companyId) public view returns (string[] memory externalIds, string[] memory dataTypes, string[] memory dataHashes, uint256[] memory timestamps)"
+  ]
+}

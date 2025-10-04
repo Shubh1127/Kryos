@@ -1,5 +1,6 @@
 import express, { Response, NextFunction } from 'express';
-import { authenticateApiKey, checkPermission, AuthenticatedRequest } from '../middleware/auth';
+import { authenticateApiKey, checkPermission } from '../middleware/auth';
+import { AuthenticatedRequest } from '../types';
 import { CustomError } from '../middleware/errorHandler';
 
 const router = express.Router();

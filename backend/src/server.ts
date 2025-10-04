@@ -20,6 +20,8 @@ import securityRoutes from './routes/security';
 import dashboardRoutes from './routes/dashboard';
 import realtimeRoutes from './routes/realtime';
 import sdkRoutes from './routes/sdk';
+import blockchainRoutes from './routes/blockchain';
+import blockchainMiddleware from './middleware/blockchain';
 
 const app = express();
 
@@ -70,6 +72,10 @@ app.get('/cors-debug', (req, res) => {
   });
 });
 
+// Blockchain middleware (add before routes)
+app.use(blockchainMiddleware.hashAndStoreData.bind(blockchainMiddleware));
+app.use(blockchainMiddleware.addBlockchainInfo.bind(blockchainMiddleware));
+
 // API routes
 app.use('/api/companies', companyRoutes);
 app.use('/api/api-keys', apiKeyRoutes);
@@ -79,6 +85,7 @@ app.use('/api/security/alerts', securityRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/realtime', realtimeRoutes);
 app.use('/api/sdk', sdkRoutes);
+app.use('/api/blockchain', blockchainRoutes);
 
 // Error handling middleware
 app.use(notFound);
